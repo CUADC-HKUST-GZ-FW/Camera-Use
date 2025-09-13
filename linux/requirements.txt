@@ -1,0 +1,25 @@
+# 海康威视相机控制程序 - Linux版本依赖
+# 生产环境要求
+
+# 图像处理库
+opencv-python>=4.5.0
+numpy>=1.19.0
+
+# Linux系统依赖（通过包管理器安装）：
+# Ubuntu/Debian:
+#   sudo apt-get update
+#   sudo apt-get install python3-dev python3-pip
+#   sudo apt-get install libopencv-dev python3-opencv
+#   sudo apt-get install build-essential cmake
+
+# CentOS/RHEL:
+#   sudo yum install python3-devel python3-pip
+#   sudo yum install opencv-devel python3-opencv
+#   sudo yum install gcc gcc-c++ make cmake
+
+# 海康威视SDK依赖（需要单独安装）：
+# 1. 下载Linux版本的MVS SDK
+# 2. 解压到 /opt/MVS/ 或 /usr/local/MVS/
+# 3. 设置环境变量：
+#    export MVCAM_COMMON_RUNENV=/opt/MVS/lib
+#    export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH
