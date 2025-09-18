@@ -420,6 +420,29 @@ class HikvisionCameraLinux:
         """解析IP地址"""
         return f"{(ip_int >> 24) & 0xFF}.{(ip_int >> 16) & 0xFF}.{(ip_int >> 8) & 0xFF}.{ip_int & 0xFF}"
     
+    def _get_error_message(self, error_code):
+        """获取错误码对应的消息"""
+        error_messages = {
+            0x80000001: "MV_E_HANDLE - 错误或无效的句柄",
+            0x80000002: "MV_E_SUPPORT - 不支持的功能", 
+            0x80000003: "MV_E_BUFOVER - 缓存已满",
+            0x80000004: "MV_E_CALLORDER - 函数调用顺序错误",
+            0x80000005: "MV_E_PARAMETER - 错误的参数",
+            0x80000006: "MV_E_RESOURCE - 资源申请失败",
+            0x80000007: "MV_E_NODATA - 无数据",
+            0x80000008: "MV_E_PRECONDITION - 前置条件有误，或运行环境已发生变化",
+            0x80000009: "MV_E_VERSION - 版本不匹配",
+            0x8000000A: "MV_E_NOENOUGH_BUF - 传入的内存空间不足",
+            0x8000000B: "MV_E_ABNORMAL_IMAGE - 异常图像，可能是丢包导致图像不完整",
+            0x8000000C: "MV_E_LOAD_LIBRARY - 动态导入DLL失败",
+            0x8000000D: "MV_E_NOOUTBUF - 没有可输出的缓存",
+            0x8000000E: "MV_E_ENCRYPT - 加密错误",
+            0x8000000F: "MV_E_OPENFILE - 打开文件出错",
+            0x80000010: "MV_E_UNKNOW - 未知的错误",
+            0x80000011: "MV_E_ACCESS_DENIED - 访问被拒绝"
+        }
+        return error_messages.get(error_code, f"未知错误码: {hex(error_code)}")
+    
     def connect(self, device_index=0):
         """连接设备"""
         if not self.device_list or device_index >= self.device_list.nDeviceNum:
@@ -429,7 +452,18 @@ class HikvisionCameraLinux:
         # 创建设备句柄
         ret = self.camera.MV_CC_CreateHandle(self.device_list.pDeviceInfo[device_index])
         if ret != 0:
-            logger.error(f"创建设备句柄失败，错误码：{ret:x}")
+            error_msg = self._get_error_message(ret)
+            logger.error(f"创建设备句柄失败，错误码：{hex(ret)} - {error_msg}")
+            
+            # 提供权限相关的建议
+            if ret == 0x80000011:  # MV_E_ACCESS_DENIED
+                logger.error("权限被拒绝 - 可能的解决方案:")
+                logger.error("1. 运行权限修复脚本: ./fix_permissions.sh")
+                logger.error("2. 或者运行: sudo chmod 666 /dev/bus/usb/*/*")
+                logger.error("3. 添加用户到plugdev组: sudo usermod -a -G plugdev $USER")
+                logger.error("4. 重新插拔相机设备")
+                logger.error("5. 或者使用sudo权限运行程序")
+            
             return False
         
         # 打开设备
