@@ -48,6 +48,14 @@ def setup_sdk_environment():
     logger.error("未找到SDK安装路径")
     return False
 
+# 在模块级别导入SDK（避免在函数内部使用import *）
+try:
+    from MvCameraControl_class import *
+    from ctypes import cast, POINTER, byref, sizeof, memset
+    SDK_AVAILABLE = True
+except ImportError:
+    SDK_AVAILABLE = False
+
 def test_camera_permissions():
     """测试相机权限"""
     logger.info("开始相机权限测试...")
@@ -55,10 +63,11 @@ def test_camera_permissions():
     if not setup_sdk_environment():
         return False
     
+    if not SDK_AVAILABLE:
+        logger.error("✗ SDK不可用，请检查安装和环境变量")
+        return False
+    
     try:
-        # 导入SDK
-        from MvCameraControl_class import *
-        from ctypes import cast, POINTER
         logger.info("✓ SDK导入成功")
         
         # 枚举设备
@@ -89,11 +98,12 @@ def test_camera_permissions():
                 error_msg = get_error_message(ret)
                 logger.error(f"✗ 创建设备句柄失败: {hex(ret)} - {error_msg}")
                 
-                if ret == 0x80000011:  # MV_E_ACCESS_DENIED
-                    logger.error("权限被拒绝! 解决方案:")
+                if ret in [0x80000004, 0x80000011]:  # CALLORDER or ACCESS_DENIED
+                    logger.error("可能的解决方案:")
                     logger.error("  1. 运行: sudo ./fix_permissions.sh")
                     logger.error("  2. 或临时解决: sudo chmod 666 /dev/bus/usb/*/*")
                     logger.error("  3. 或以root权限运行: sudo python3 test_permissions.py")
+                    logger.error("  4. 检查是否有其他程序在使用相机")
                 
                 continue
             
@@ -138,9 +148,6 @@ def test_camera_permissions():
         
         return True
         
-    except ImportError as e:
-        logger.error(f"✗ SDK导入失败: {e}")
-        return False
     except Exception as e:
         logger.error(f"✗ 权限测试失败: {e}")
         return False

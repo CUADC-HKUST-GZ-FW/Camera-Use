@@ -32,5 +32,41 @@ timeout 10 python3 hikvision_camera_controller_linux.py --calibration ../calibra
 
 echo ""
 echo "测试完成！"
-echo "如果未出现 'c_ubyte_Array_64' object has no attribute 'decode' 错误，"
-echo "说明设备名称解码问题已修复。"
+echo "=========================================="
+echo "结果分析:"
+
+if timeout 10 python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json 2>&1 | grep -q "c_ubyte_Array_64.*decode"; then
+    echo "✗ 设备名称解码问题仍存在"
+else
+    echo "✅ 设备名称解码问题已修复"
+fi
+
+if timeout 10 python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json 2>&1 | grep -q "SDK导入成功"; then
+    echo "✅ SDK导入问题已解决"
+else
+    echo "✗ SDK导入问题仍存在"
+fi
+
+if timeout 10 python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json 2>&1 | grep -q "发现.*个设备"; then
+    echo "✅ 设备发现功能正常"
+else
+    echo "✗ 设备发现功能异常"
+fi
+
+if timeout 10 python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json 2>&1 | grep -q "0x80000004.*CALLORDER"; then
+    echo "⚠️  检测到函数调用顺序错误 (CALLORDER)"
+    echo ""
+    echo "CALLORDER错误解决方案:"
+    echo "1. 重新插拔相机USB设备"
+    echo "2. 检查是否有其他程序在使用相机"
+    echo "3. 运行完整诊断: chmod +x diagnose_camera.sh && ./diagnose_camera.sh"
+    echo "4. 尝试sudo权限: sudo python3 hikvision_camera_controller_linux.py"
+elif timeout 10 python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json 2>&1 | grep -q "设备连接成功\|设备打开成功"; then
+    echo "✅ 相机权限和连接正常"
+else
+    echo "⚠️  相机连接可能存在问题"
+fi
+
+echo ""
+echo "如果仍有问题，请运行详细诊断:"
+echo "chmod +x diagnose_camera.sh && ./diagnose_camera.sh"

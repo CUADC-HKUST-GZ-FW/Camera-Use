@@ -331,7 +331,15 @@ class HikvisionCameraLinux:
     """海康威视相机控制类 - Linux版本"""
     
     def __init__(self, calibration=None):
-        self.camera = MvCamera()
+        # 检查是否已经有MvCamera实例存在，避免重复创建
+        if not hasattr(self, 'camera') or self.camera is None:
+            try:
+                self.camera = MvCamera()
+                logger.info("相机SDK实例创建成功")
+            except Exception as e:
+                logger.error(f"相机SDK实例创建失败: {e}")
+                self.camera = None
+        
         self.device_list = None
         self.is_connected = False
         self.is_grabbing = False
