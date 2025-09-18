@@ -334,10 +334,15 @@ class HikvisionCameraLinux:
         # 检查是否已经有MvCamera实例存在，避免重复创建
         if not hasattr(self, 'camera') or self.camera is None:
             try:
+                # 添加延迟，避免快速重复创建导致的状态冲突
+                import time
+                time.sleep(0.1)
+                
                 self.camera = MvCamera()
                 logger.info("相机SDK实例创建成功")
             except Exception as e:
                 logger.error(f"相机SDK实例创建失败: {e}")
+                # 创建一个模拟相机对象，避免None错误
                 self.camera = None
         
         self.device_list = None
@@ -453,9 +458,24 @@ class HikvisionCameraLinux:
     
     def connect(self, device_index=0):
         """连接设备"""
+        if self.camera is None:
+            logger.error("相机SDK实例未创建")
+            return False
+            
         if not self.device_list or device_index >= self.device_list.nDeviceNum:
             logger.error("无效的设备索引")
             return False
+        
+        # 添加设备状态检查和清理
+        try:
+            # 如果已经连接，先断开
+            if self.is_connected:
+                logger.info("检测到已连接状态，先断开...")
+                self.disconnect()
+                import time
+                time.sleep(0.5)  # 等待断开完成
+        except:
+            pass
         
         # 创建设备句柄
         ret = self.camera.MV_CC_CreateHandle(self.device_list.pDeviceInfo[device_index])
@@ -463,8 +483,14 @@ class HikvisionCameraLinux:
             error_msg = self._get_error_message(ret)
             logger.error(f"创建设备句柄失败，错误码：{hex(ret)} - {error_msg}")
             
-            # 提供权限相关的建议
-            if ret == 0x80000011:  # MV_E_ACCESS_DENIED
+            # 特殊处理CALLORDER错误
+            if ret == 0x80000004:  # MV_E_CALLORDER
+                logger.error("函数调用顺序错误 - 可能的解决方案:")
+                logger.error("1. 设备可能被其他程序占用")
+                logger.error("2. 尝试重新插拔USB设备")
+                logger.error("3. 重启程序或系统")
+                logger.error("4. 检查SDK状态是否正常")
+            elif ret == 0x80000011:  # MV_E_ACCESS_DENIED
                 logger.error("权限被拒绝 - 可能的解决方案:")
                 logger.error("1. 运行权限修复脚本: ./fix_permissions.sh")
                 logger.error("2. 或者运行: sudo chmod 666 /dev/bus/usb/*/*")
@@ -799,7 +825,14 @@ class CameraControllerLinux:
     
     def initialize_camera(self, device_index=0):
         """初始化相机"""
-        self.camera = HikvisionCameraLinux(self.calibration)
+        # 避免重复创建相机实例
+        if self.camera is None:
+            self.camera = HikvisionCameraLinux(self.calibration)
+        else:
+            logger.warning("相机实例已存在，将重用现有实例")
+            # 更新校准参数
+            if self.calibration:
+                self.camera.calibration = self.calibration
         
         # 发现设备
         if not self.camera.discover_devices():

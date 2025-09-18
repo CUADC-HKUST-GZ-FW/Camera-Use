@@ -14,23 +14,19 @@ Camera_GetData/
 │       └── undistorted_samples/    # 去畸变样本图像
 ├── windows/                        # Windows版本
 │   ├── hikvision_camera_controller.py # 主程序（含GUI）
-│   ├── example_usage.py            # 使用示例
-│   ├── requirements.txt            # Python依赖
-│   ├── install.bat                 # 安装脚本
-│   ├── start_camera.bat           # 启动脚本
-│   ├── config.json                # 配置文件
-│   └── README.md                  # Windows版本说明
+│   ├── install_windows.bat        # 安装脚本
+│   └── README_windows.md          # Windows版本说明
 ├── linux/                         # Linux版本
 │   ├── hikvision_camera_controller_linux.py # 主程序（命令行）
-│   ├── example_usage.py           # 使用示例
-│   ├── requirements.txt           # Python依赖
-│   ├── install.sh                 # 安装脚本
-│   ├── start_camera.sh           # 启动脚本
-│   ├── config.json               # 配置文件
-│   └── README.md                 # Linux版本说明
-├── start_windows.bat             # Windows版本启动器
-├── start_linux.sh               # Linux版本启动器
-└── README.md                     # 项目说明（本文件）
+│   ├── 使用指南.md                  # 详细使用指南
+│   ├── CALLORDER错误解决方案.md     # 故障排除指南
+│   ├── test_env.py                # 环境变量测试
+│   ├── test_permissions.py        # 权限测试
+│   ├── fix_permissions.sh         # 权限修复脚本
+│   ├── diagnose_camera.sh         # 全面诊断脚本
+│   ├── quick_test.sh             # 快速测试脚本
+│   └── verify_fix.sh             # 验证修复脚本
+└── README.md                      # 项目说明（本文件）
 ```
 
 ## 功能特性
@@ -86,31 +82,31 @@ Camera_GetData/
 1. **安装依赖**:
    ```bash
    cd linux
-   chmod +x install.sh
-   ./install.sh
+   chmod +x *.sh
    ```
 
-2. **启动程序**:
+2. **快速测试**:
    ```bash
-   # 从根目录启动
-   chmod +x start_linux.sh
-   ./start_linux.sh
-   
-   # 或从linux目录启动
-   cd linux
-   ./start_camera.sh
+   # 运行快速测试验证环境
+   sudo ./quick_test.sh
    ```
 
-3. **使用示例**:
+3. **启动程序**:
    ```bash
-   # 拍照模式
-   ./start_linux.sh --capture photo.jpg
+   # 如果测试通过，运行完整程序
+   sudo python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json
+   ```
+
+4. **故障排除**:
+   ```bash
+   # 如果遇到CALLORDER错误 (0x80000004)
+   # 最快解决方案：重新插拔USB设备
    
-   # 录像模式
-   ./start_linux.sh --record video.avi --fps 30
+   # 详细诊断
+   ./diagnose_camera.sh
    
-   # 连续拍照
-   ./start_linux.sh --continuous photos --interval 0.5
+   # 查看详细解决方案
+   cat CALLORDER错误解决方案.md
    ```
 
 ## 系统要求
@@ -191,6 +187,50 @@ Camera_GetData/
 
 ## 故障排除
 
+### Linux平台（Jetson Orin Nano）
+
+#### 1. CALLORDER错误 (0x80000004) - 最常见问题
+**症状**: 程序报告"函数调用顺序错误"
+
+**快速解决方案**:
+```bash
+# 方案1: 重新插拔USB设备（解决70%问题）
+# 手动拔出USB线，等待5秒，重新插入
+
+# 方案2: 系统重启（解决90%问题）
+sudo reboot
+
+# 方案3: 终止冲突进程
+sudo pkill -f camera; sudo pkill -f mvs
+```
+
+**详细解决方案**:
+```bash
+# 查看完整解决指南
+cd linux
+cat CALLORDER错误解决方案.md
+```
+
+#### 2. 权限问题
+```bash
+cd linux
+sudo ./fix_permissions.sh
+```
+
+#### 3. 环境变量问题
+```bash
+cd linux
+python3 test_env.py
+```
+
+#### 4. 完整诊断
+```bash
+cd linux
+./diagnose_camera.sh
+```
+
+### Windows平台
+
 ### 常见问题
 
 1. **SDK导入失败**
@@ -213,11 +253,51 @@ Camera_GetData/
 启用详细日志模式获取更多诊断信息：
 
 ```bash
-# Windows
-start_windows.bat --verbose
+# Linux (Jetson)
+sudo python3 hikvision_camera_controller_linux.py --calibration ../calibration/20250910_232046/calibration_result.json 2>&1 | tee error.log
 
-# Linux
-./start_linux.sh --verbose
+# Windows
+python hikvision_camera_controller.py --verbose
+```
+
+## 🚨 紧急修复指南
+
+### 对于Linux/Jetson用户
+
+如果遇到任何问题，按以下顺序尝试：
+
+1. **最快解决方案**:
+   ```bash
+   # 重新插拔USB设备，等待5秒后重试
+   ```
+
+2. **最有效解决方案**:
+   ```bash
+   sudo reboot
+   ```
+
+3. **自动诊断修复**:
+   ```bash
+   cd linux
+   sudo ./quick_test.sh
+   ```
+
+### 成功运行的标志
+
+程序正常工作时，您应该看到：
+```
+✅ 环境变量检查通过
+✅ 相机SDK实例创建成功
+✅ 发现 1 个设备
+✅ 设备句柄创建成功
+✅ 设备连接成功
+✅ 校准参数加载成功
+相机控制程序已启动...
+```
+
+而不是：
+```
+❌ 创建设备句柄失败，错误码：0x80000004 - MV_E_CALLORDER
 ```
 
 ## 开发指南
