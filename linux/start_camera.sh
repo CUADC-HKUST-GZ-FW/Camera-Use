@@ -33,7 +33,58 @@ if [ -f "./setup_env.sh" ]; then
     source ./setup_env.sh
 else
     echo "警告: 未找到环境变量设置文件 setup_env.sh"
-    echo "如果遇到SDK导入错误，请先运行安装脚本"
+    echo "尝试自动设置环境变量..."
+    
+    # 自动检测和设置环境变量
+    SDK_PATHS=("/opt/MVS" "/usr/local/MVS" "/home/$USER/MVS" "$(pwd)/MVS")
+    ARCH=$(uname -m)
+    
+    for path in "${SDK_PATHS[@]}"; do
+        if [ -d "$path" ]; then
+            echo "找到SDK路径: $path"
+            export MVS_SDK_PATH="$path"
+            export MVCAM_COMMON_RUNENV="$path/lib"
+            
+            if [ "$ARCH" = "aarch64" ]; then
+                # 检查aarch64库文件
+                MAIN_LIB="$path/lib/aarch64/libMvCameraControl.so"
+                if [ -f "$MAIN_LIB" ]; then
+                    export LD_LIBRARY_PATH="$path/lib/aarch64:$path/lib:$LD_LIBRARY_PATH"
+                    export PYTHONPATH="$path/Samples/aarch64/Python/MvImport:$PYTHONPATH"
+                    echo "已设置ARM64架构环境变量 (专用路径)"
+                else
+                    # 回退到通用库路径
+                    echo "警告: 未找到aarch64专用库，使用通用路径"
+                    export LD_LIBRARY_PATH="$path/lib:$LD_LIBRARY_PATH"
+                    # 尝试多个可能的Python路径
+                    for py_path in "$path/Samples/aarch64/Python/MvImport" "$path/Samples/Python/MvImport" "$path/Python/MvImport"; do
+                        if [ -d "$py_path" ]; then
+                            export PYTHONPATH="$py_path:$PYTHONPATH"
+                            echo "已设置ARM64架构环境变量 (通用路径): $py_path"
+                            break
+                        fi
+                    done
+                fi
+            else
+                export LD_LIBRARY_PATH="$path/lib/64:$path/lib/32:$path/lib:$LD_LIBRARY_PATH"
+                export PYTHONPATH="$path/Samples/64/Python/MvImport:$PYTHONPATH"
+                echo "已设置x86_64架构环境变量"
+            fi
+            
+            echo "环境变量设置:"
+            echo "  MVS_SDK_PATH=$MVS_SDK_PATH"
+            echo "  MVCAM_COMMON_RUNENV=$MVCAM_COMMON_RUNENV"
+            echo "  LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+            echo "  PYTHONPATH=$PYTHONPATH"
+            break
+        fi
+    done
+    
+    if [ -z "$MVCAM_COMMON_RUNENV" ]; then
+        echo "错误: 未找到SDK，请先安装海康威视SDK"
+        echo "运行安装脚本: ./install.sh"
+        exit 1
+    fi
 fi
 
 # 检查Python依赖

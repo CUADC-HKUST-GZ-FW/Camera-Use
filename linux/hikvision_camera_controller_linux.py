@@ -26,6 +26,67 @@ logger = logging.getLogger(__name__)
 
 # 海康威视SDK导入
 SDK_AVAILABLE = False
+
+# 在导入SDK之前检查和设置环境变量
+def setup_sdk_environment():
+    """设置SDK环境变量"""
+    import platform
+    
+    # 检查当前环境变量
+    current_env = os.environ.get('MVCAM_COMMON_RUNENV')
+    if current_env:
+        logger.info(f"环境变量已设置: MVCAM_COMMON_RUNENV={current_env}")
+        return True
+    
+    # 自动检测和设置环境变量
+    logger.info("自动检测SDK安装路径...")
+    arch = platform.machine()
+    
+    sdk_paths = [
+        "/opt/MVS",
+        "/usr/local/MVS", 
+        "/home/user/MVS",
+        "./MVS"
+    ]
+    
+    for sdk_path in sdk_paths:
+        if os.path.exists(sdk_path):
+            logger.info(f"找到SDK路径: {sdk_path}")
+            
+            # 设置基本环境变量
+            os.environ['MVS_SDK_PATH'] = sdk_path
+            os.environ['MVCAM_COMMON_RUNENV'] = os.path.join(sdk_path, 'lib')
+            
+            # 根据架构设置库路径
+            if arch == 'aarch64':
+                lib_path = f"{sdk_path}/lib/aarch64:{sdk_path}/lib"
+                python_path = f"{sdk_path}/Samples/aarch64/Python"
+                logger.info("设置ARM64架构路径")
+            else:
+                lib_path = f"{sdk_path}/lib/64:{sdk_path}/lib/32"
+                python_path = f"{sdk_path}/Samples/64/Python"
+                logger.info("设置x86_64架构路径")
+            
+            # 更新环境变量
+            current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+            os.environ['LD_LIBRARY_PATH'] = f"{lib_path}:{current_ld_path}" if current_ld_path else lib_path
+            
+            current_python_path = os.environ.get('PYTHONPATH', '')
+            os.environ['PYTHONPATH'] = f"{python_path}:{current_python_path}" if current_python_path else python_path
+            
+            logger.info(f"MVCAM_COMMON_RUNENV: {os.environ['MVCAM_COMMON_RUNENV']}")
+            logger.info(f"LD_LIBRARY_PATH: {os.environ['LD_LIBRARY_PATH']}")
+            logger.info(f"PYTHONPATH: {os.environ['PYTHONPATH']}")
+            
+            return True
+    
+    logger.error("未找到SDK安装路径")
+    return False
+
+# 设置SDK环境
+if not setup_sdk_environment():
+    logger.warning("SDK环境变量设置失败，将使用模拟模式")
+
 try:
     # Jetson Orin Nano (aarch64) 下SDK路径
     possible_paths = [
