@@ -10,6 +10,11 @@
 import os
 import sys
 import json
+
+# 设置环境变量以避免X11相关错误
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+os.environ['DISPLAY'] = ''
+
 import cv2
 import numpy as np
 import time
@@ -373,13 +378,40 @@ class HikvisionCameraLinux:
             mvcc_dev_info = cast(device_list.pDeviceInfo[i], POINTER(MV_CC_DEVICE_INFO)).contents
             
             if mvcc_dev_info.nTLayerType == MV_GIGE_DEVICE:
-                device_name = mvcc_dev_info.SpecialInfo.stGigEInfo.chUserDefinedName.decode('ascii', errors='ignore')
-                ip = self._parse_ip(mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp)
-                logger.info(f"  [{i}] GigE设备: {device_name}")
-                logger.info(f"      IP: {ip}")
+                try:
+                    # 安全地处理设备名称
+                    name_array = mvcc_dev_info.SpecialInfo.stGigEInfo.chUserDefinedName
+                    if hasattr(name_array, 'value'):
+                        device_name = name_array.value.decode('ascii', errors='ignore')
+                    else:
+                        # 处理c_ubyte数组
+                        name_bytes = bytes(name_array)
+                        device_name = name_bytes.decode('ascii', errors='ignore').rstrip('\x00')
+                    
+                    ip = self._parse_ip(mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp)
+                    logger.info(f"  [{i}] GigE设备: {device_name}")
+                    logger.info(f"      IP: {ip}")
+                except Exception as e:
+                    logger.warning(f"  [{i}] GigE设备 - 名称解析失败: {e}")
+                    ip = self._parse_ip(mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp)
+                    logger.info(f"  [{i}] GigE设备: 未知名称")
+                    logger.info(f"      IP: {ip}")
+                    
             elif mvcc_dev_info.nTLayerType == MV_USB_DEVICE:
-                device_name = mvcc_dev_info.SpecialInfo.stUsb3VInfo.chUserDefinedName.decode('ascii', errors='ignore')
-                logger.info(f"  [{i}] USB设备: {device_name}")
+                try:
+                    # 安全地处理设备名称
+                    name_array = mvcc_dev_info.SpecialInfo.stUsb3VInfo.chUserDefinedName
+                    if hasattr(name_array, 'value'):
+                        device_name = name_array.value.decode('ascii', errors='ignore')
+                    else:
+                        # 处理c_ubyte数组
+                        name_bytes = bytes(name_array)
+                        device_name = name_bytes.decode('ascii', errors='ignore').rstrip('\x00')
+                    
+                    logger.info(f"  [{i}] USB设备: {device_name}")
+                except Exception as e:
+                    logger.warning(f"  [{i}] USB设备 - 名称解析失败: {e}")
+                    logger.info(f"  [{i}] USB设备: 未知名称")
         
         self.device_list = device_list
         return True

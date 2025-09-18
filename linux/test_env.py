@@ -125,6 +125,86 @@ def test_library_loading():
         logger.error("✗ 库文件不存在")
         return False
 
+def test_device_discovery():
+    """测试设备发现功能"""
+    logger.info("\n设备发现测试:")
+    logger.info("-" * 30)
+    
+    try:
+        # 尝试导入SDK并进行设备发现
+        import MvCameraControl_class
+        from ctypes import cast, POINTER
+        logger.info("✓ SDK模块导入成功")
+        
+        # 枚举设备
+        device_list = MvCameraControl_class.MV_CC_DEVICE_INFO_LIST()
+        tlayerType = MvCameraControl_class.MV_GIGE_DEVICE | MvCameraControl_class.MV_USB_DEVICE
+        
+        ret = MvCameraControl_class.MvCamera.MV_CC_EnumDevices(tlayerType, device_list)
+        if ret != 0:
+            logger.error(f"✗ 枚举设备失败, 错误代码: {hex(ret)}")
+            return False
+        
+        if device_list.nDeviceNum == 0:
+            logger.warning("! 未发现相机设备")
+            return True
+        
+        logger.info(f"✓ 发现 {device_list.nDeviceNum} 个设备:")
+        
+        for i in range(device_list.nDeviceNum):
+            try:
+                mvcc_dev_info = cast(device_list.pDeviceInfo[i], POINTER(MvCameraControl_class.MV_CC_DEVICE_INFO)).contents
+                
+                if mvcc_dev_info.nTLayerType == MvCameraControl_class.MV_GIGE_DEVICE:
+                    logger.info(f"  [{i}] GigE设备")
+                    try:
+                        # 安全地处理设备名称
+                        name_array = mvcc_dev_info.SpecialInfo.stGigEInfo.chUserDefinedName
+                        if hasattr(name_array, 'value'):
+                            device_name = name_array.value.decode('ascii', errors='ignore')
+                        else:
+                            # 处理c_ubyte数组
+                            name_bytes = bytes(name_array)
+                            device_name = name_bytes.decode('ascii', errors='ignore').rstrip('\x00')
+                        
+                        logger.info(f"      名称: {device_name}")
+                        
+                    except Exception as e:
+                        logger.warning(f"      名称解析失败: {e}")
+                        
+                elif mvcc_dev_info.nTLayerType == MvCameraControl_class.MV_USB_DEVICE:
+                    logger.info(f"  [{i}] USB设备")
+                    try:
+                        # 安全地处理设备名称
+                        name_array = mvcc_dev_info.SpecialInfo.stUsb3VInfo.chUserDefinedName
+                        if hasattr(name_array, 'value'):
+                            device_name = name_array.value.decode('ascii', errors='ignore')
+                        else:
+                            # 处理c_ubyte数组 - 这是修复的关键部分
+                            name_bytes = bytes(name_array)
+                            device_name = name_bytes.decode('ascii', errors='ignore').rstrip('\x00')
+                        
+                        logger.info(f"      名称: {device_name}")
+                        logger.info("      ✓ 设备名称解码成功 (修复验证)")
+                        
+                    except Exception as e:
+                        logger.warning(f"      名称解析失败: {e}")
+                        
+                else:
+                    logger.info(f"  [{i}] 未知设备类型")
+                    
+            except Exception as e:
+                logger.error(f"处理设备 {i} 时出错: {e}")
+                
+        return True
+        
+    except ImportError as e:
+        logger.error(f"✗ SDK导入失败: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"✗ 设备发现失败: {e}")
+        return False
+
 def test_python_module():
     """测试Python模块导入"""
     logger.info("\nPython模块测试:")
@@ -164,6 +244,7 @@ def main():
     detect_sdk_installation()
     test_library_loading()
     test_python_module()
+    test_device_discovery()  # 新增设备发现测试
     
     logger.info("\n" + "=" * 50)
     logger.info("测试完成")
