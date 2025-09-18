@@ -18,6 +18,21 @@ else
 fi
 
 echo "检测到操作系统: $OS $VER"
+echo "检测系统架构..."
+
+# 检测系统架构
+ARCH=$(uname -m)
+echo "系统架构: $ARCH"
+
+# 针对Jetson设备的特殊检测
+if [ -f "/etc/nv_tegra_release" ]; then
+    echo "检测到NVIDIA Jetson设备"
+    JETSON_INFO=$(cat /etc/nv_tegra_release)
+    echo "Jetson信息: $JETSON_INFO"
+    IS_JETSON=true
+else
+    IS_JETSON=false
+fi
 
 # 安装系统依赖
 echo ""
@@ -27,9 +42,28 @@ if [[ "$OS" == *"Ubuntu"* ]] || [[ "$OS" == *"Debian"* ]]; then
     echo "使用 apt-get 安装依赖..."
     sudo apt-get update
     sudo apt-get install -y python3 python3-pip python3-dev
-    sudo apt-get install -y libopencv-dev python3-opencv
+    
+    # 针对Jetson设备的OpenCV安装
+    if [ "$IS_JETSON" = true ]; then
+        echo "Jetson设备：使用预安装的OpenCV..."
+        # Jetson通常预装了OpenCV，检查是否存在
+        python3 -c "import cv2; print('OpenCV version:', cv2.__version__)" 2>/dev/null || {
+            echo "安装OpenCV for Jetson..."
+            sudo apt-get install -y python3-opencv
+        }
+    else
+        sudo apt-get install -y libopencv-dev python3-opencv
+    fi
+    
     sudo apt-get install -y build-essential cmake
     sudo apt-get install -y libusb-1.0-0-dev
+    
+    # Jetson特定的依赖
+    if [ "$IS_JETSON" = true ]; then
+        echo "安装Jetson特定依赖..."
+        sudo apt-get install -y nvidia-l4t-camera
+        sudo apt-get install -y v4l-utils
+    fi
     
 elif [[ "$OS" == *"CentOS"* ]] || [[ "$OS" == *"Red Hat"* ]] || [[ "$OS" == *"Rocky"* ]]; then
     echo "使用 yum/dnf 安装依赖..."
@@ -68,11 +102,24 @@ pip3 install --user -r requirements.txt
 echo ""
 echo "检查海康威视SDK..."
 
-SDK_PATHS=(
-    "/opt/MVS"
-    "/usr/local/MVS"
-    "/home/$USER/MVS"
-)
+# 根据架构设置SDK路径
+if [ "$ARCH" = "aarch64" ]; then
+    SDK_PATHS=(
+        "/opt/MVS"
+        "/usr/local/MVS"
+        "/home/$USER/MVS"
+    )
+    SDK_ARCH_SUBDIR="aarch64"
+    echo "ARM64架构：查找aarch64版本的SDK..."
+else
+    SDK_PATHS=(
+        "/opt/MVS"
+        "/usr/local/MVS"
+        "/home/$USER/MVS"
+    )
+    SDK_ARCH_SUBDIR="64"
+    echo "x86_64架构：查找64位版本的SDK..."
+fi
 
 SDK_FOUND=false
 for path in "${SDK_PATHS[@]}"; do
@@ -89,6 +136,13 @@ if [ "$SDK_FOUND" = false ]; then
     echo ""
     echo "请按照以下步骤安装SDK:"
     echo "1. 从海康威视官网下载Linux版本的MVS SDK"
+    if [ "$ARCH" = "aarch64" ]; then
+        echo "   注意：请下载ARM64 (aarch64) 版本的SDK"
+        echo "   文件名通常为: MVS-*-Linux-aarch64-*.tar.gz"
+    else
+        echo "   注意：请下载x86_64版本的SDK" 
+        echo "   文件名通常为: MVS-*-Linux-x86_64-*.tar.gz"
+    fi
     echo "2. 解压SDK到 /opt/MVS/ 或 /usr/local/MVS/"
     echo "3. 运行SDK的安装脚本"
     echo "4. 设置环境变量"
@@ -131,12 +185,22 @@ else
 
 export MVS_SDK_PATH="$SDK_PATH"
 export MVCAM_COMMON_RUNENV="$SDK_PATH/lib"
-export LD_LIBRARY_PATH="$SDK_PATH/lib/64:$SDK_PATH/lib/32:\$LD_LIBRARY_PATH"
-export PYTHONPATH="$SDK_PATH/Samples/64/Python:\$PYTHONPATH"
+
+# 根据架构设置库路径
+if [ "$ARCH" = "aarch64" ]; then
+    export LD_LIBRARY_PATH="$SDK_PATH/lib/aarch64:$SDK_PATH/lib:$LD_LIBRARY_PATH"
+    export PYTHONPATH="$SDK_PATH/Samples/aarch64/Python:$PYTHONPATH"
+    echo "已设置ARM64架构的库路径"
+else
+    export LD_LIBRARY_PATH="$SDK_PATH/lib/64:$SDK_PATH/lib/32:$LD_LIBRARY_PATH"
+    export PYTHONPATH="$SDK_PATH/Samples/64/Python:$PYTHONPATH"
+    echo "已设置x86_64架构的库路径"
+fi
 
 echo "海康威视SDK环境变量已设置"
 echo "SDK路径: $SDK_PATH"
 echo "库路径: $MVCAM_COMMON_RUNENV"
+echo "架构: $ARCH"
 EOF
     
     chmod +x setup_env.sh

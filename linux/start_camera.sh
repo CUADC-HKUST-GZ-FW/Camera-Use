@@ -4,6 +4,29 @@
 echo "海康威视相机控制程序 - Linux版本"
 echo "================================"
 
+# 检测系统架构和Jetson设备
+ARCH=$(uname -m)
+echo "系统架构: $ARCH"
+
+if [ -f "/etc/nv_tegra_release" ]; then
+    echo "✓ 检测到NVIDIA Jetson设备"
+    JETSON_INFO=$(cat /etc/nv_tegra_release | head -1)
+    echo "  $JETSON_INFO"
+    
+    # 检查Jetson性能模式
+    if command -v nvpmodel &> /dev/null; then
+        NVPMODEL_STATUS=$(nvpmodel -q 2>/dev/null | grep "NV Power Mode" || echo "状态未知")
+        echo "  电源模式: $NVPMODEL_STATUS"
+    fi
+    
+    # 温度监控提醒
+    if command -v tegrastats &> /dev/null; then
+        echo "  提示: 可使用 'tegrastats' 监控设备状态"
+    fi
+else
+    echo "通用Linux系统"
+fi
+
 # 设置环境变量
 if [ -f "./setup_env.sh" ]; then
     echo "加载SDK环境变量..."

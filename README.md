@@ -128,8 +128,12 @@ Camera_GetData/
 
 ### Linux特定要求
 - Ubuntu 18.04+ / CentOS 7+ 或兼容发行版
+- **NVIDIA Jetson设备支持 (aarch64架构)**
+  - Jetson Orin Nano/NX (推荐)
+  - Jetson Xavier NX/AGX
+  - Jetson Nano
 - GCC 7.0+
-- 至少1GB内存
+- 至少1GB内存（Jetson推荐8GB）
 
 ## 校准文件
 

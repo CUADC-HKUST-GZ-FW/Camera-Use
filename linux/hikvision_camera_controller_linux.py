@@ -27,11 +27,14 @@ logger = logging.getLogger(__name__)
 # 海康威视SDK导入
 SDK_AVAILABLE = False
 try:
-    # Linux下SDK路径通常在 /opt/MVS/ 或 /usr/local/MVS/
+    # Jetson Orin Nano (aarch64) 下SDK路径
     possible_paths = [
-        "/opt/MVS/Samples/64/Python/MvImport",
+        "/opt/MVS/Samples/aarch64/Python/MvImport",
+        "/usr/local/MVS/Samples/aarch64/Python/MvImport", 
+        "/opt/MVS/Samples/64/Python/MvImport",  # 通用64位路径
         "/usr/local/MVS/Samples/64/Python/MvImport",
-        "/home/user/MVS/Samples/64/Python/MvImport",
+        "/home/user/MVS/Samples/aarch64/Python/MvImport",
+        "./MVS/Samples/aarch64/Python/MvImport",
         "./MVS/Samples/64/Python/MvImport"
     ]
     

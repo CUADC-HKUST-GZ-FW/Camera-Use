@@ -4,6 +4,8 @@
 
 这是海康威视相机控制程序的Linux命令行版本，专为生产环境设计，无需图形界面支持。程序支持图像获取、视频录制、连续拍照等功能，并可加载相机校准参数进行图像去畸变处理。
 
+**特别优化支持NVIDIA Jetson设备（包括Jetson Orin Nano aarch64架构）**
+
 ## 功能特性
 
 - **单张拍照**: 支持多种图像格式 (JPG, PNG, BMP等)
@@ -19,12 +21,22 @@
 ### 操作系统
 - Ubuntu 18.04+ / Debian 10+
 - CentOS 7+ / RHEL 7+ / Rocky Linux 8+
+- **NVIDIA Jetson系列 (推荐JetPack 5.0+)**
+  - Jetson Orin Nano/NX
+  - Jetson Xavier NX/AGX
+  - Jetson Nano (较老设备，性能受限)
 - 其他支持Python 3.7+的Linux发行版
 
 ### 硬件要求
-- CPU: x64架构
-- 内存: 至少1GB可用内存
-- 存储: 至少1GB可用空间
+- **通用设备**:
+  - CPU: x64或ARM64架构
+  - 内存: 至少1GB可用内存
+  - 存储: 至少1GB可用空间
+- **Jetson设备**:
+  - 推荐8GB内存版本（Orin Nano 8GB）
+  - 高速microSD卡或NVMe SSD
+  - 充足的散热（主动散热风扇推荐）
+  - 稳定电源供应（推荐官方电源适配器）
 - 网络: 千兆网卡（用于GigE相机）
 - USB: USB 3.0接口（用于USB相机）
 
@@ -57,13 +69,23 @@ chmod +x install.sh
 
 #### 1. 安装系统依赖
 
-**Ubuntu/Debian:**
+**Ubuntu/Debian (包括Jetson):**
 ```bash
 sudo apt-get update
 sudo apt-get install python3 python3-pip python3-dev
-sudo apt-get install libopencv-dev python3-opencv
 sudo apt-get install build-essential cmake
 sudo apt-get install libusb-1.0-0-dev
+
+# Jetson设备通常预装OpenCV，检查是否存在
+python3 -c "import cv2; print('OpenCV version:', cv2.__version__)" || {
+    sudo apt-get install python3-opencv
+}
+
+# Jetson特定依赖
+if [ -f "/etc/nv_tegra_release" ]; then
+    sudo apt-get install nvidia-l4t-camera
+    sudo apt-get install v4l-utils
+fi
 ```
 
 **CentOS/RHEL:**
@@ -83,12 +105,19 @@ pip3 install -r requirements.txt
 
 #### 3. 安装海康威视SDK
 
-1. 从[海康威视官网](https://www.hikrobotics.com/cn/machinevision/service/download)下载Linux版本的MVS SDK
+**重要：Jetson设备需要ARM64版本的SDK**
+
+1. 从[海康威视官网](https://www.hikrobotics.com/cn/machinevision/service/download)下载对应架构的Linux版本MVS SDK
+   - **Jetson (aarch64)**: 下载 `MVS-*-Linux-aarch64-*.tar.gz`
+   - **普通PC (x86_64)**: 下载 `MVS-*-Linux-x86_64-*.tar.gz`
+
 2. 解压SDK到系统路径：
    ```bash
-   sudo tar -xzf MVS-*-Linux-*.tar.gz -C /opt/
+   # 以aarch64版本为例
+   sudo tar -xzf MVS-*-Linux-aarch64-*.tar.gz -C /opt/
    sudo mv /opt/MVS* /opt/MVS
    ```
+
 3. 安装SDK：
    ```bash
    cd /opt/MVS
@@ -101,8 +130,18 @@ pip3 install -r requirements.txt
 # 添加到 ~/.bashrc 或 ~/.profile
 export MVS_SDK_PATH="/opt/MVS"
 export MVCAM_COMMON_RUNENV="$MVS_SDK_PATH/lib"
-export LD_LIBRARY_PATH="$MVS_SDK_PATH/lib/64:$MVS_SDK_PATH/lib/32:$LD_LIBRARY_PATH"
-export PYTHONPATH="$MVS_SDK_PATH/Samples/64/Python:$PYTHONPATH"
+
+# 根据架构设置库路径
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    # Jetson/ARM64设备
+    export LD_LIBRARY_PATH="$MVS_SDK_PATH/lib/aarch64:$MVS_SDK_PATH/lib:$LD_LIBRARY_PATH"
+    export PYTHONPATH="$MVS_SDK_PATH/Samples/aarch64/Python:$PYTHONPATH"
+else
+    # x86_64设备
+    export LD_LIBRARY_PATH="$MVS_SDK_PATH/lib/64:$MVS_SDK_PATH/lib/32:$LD_LIBRARY_PATH"
+    export PYTHONPATH="$MVS_SDK_PATH/Samples/64/Python:$PYTHONPATH"
+fi
 ```
 
 或使用提供的环境变量脚本：
@@ -366,6 +405,51 @@ echo "* hard nofile 65536" | sudo tee -a /etc/security/limits.conf
 echo "net.core.rmem_max = 134217728" | sudo tee -a /etc/sysctl.conf
 echo "net.core.wmem_max = 134217728" | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
+```
+
+#### 3. Jetson性能优化
+
+**设置最大性能模式：**
+```bash
+# 查看可用性能模式
+sudo nvpmodel -q
+
+# 设置为最大性能模式（模式0）
+sudo nvpmodel -m 0
+
+# 锁定最大CPU/GPU频率
+sudo jetson_clocks
+
+# 查看当前频率状态
+sudo jetson_clocks --show
+```
+
+**温度和功耗监控：**
+```bash
+# 实时监控系统状态
+sudo tegrastats
+
+# 安装jetson-stats工具包（推荐）
+sudo pip3 install jetson-stats
+sudo jtop  # 图形化监控界面
+```
+
+**散热优化：**
+```bash
+# 设置风扇策略（如果有主动散热）
+echo 255 | sudo tee /sys/devices/pwm-fan/target_pwm
+
+# 监控温度
+watch -n 1 'cat /sys/devices/virtual/thermal/thermal_zone*/temp'
+```
+
+**内存优化：**
+```bash
+# 禁用swap（提高性能）
+sudo swapoff -a
+
+# 清理内存缓存
+echo 3 | sudo tee /proc/sys/vm/drop_caches
 ```
 
 ## 服务化部署
