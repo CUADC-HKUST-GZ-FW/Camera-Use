@@ -205,3 +205,42 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# 项目特定文件
+# 相机输出文件
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.avi
+*.mp4
+*.mov
+captures/
+outputs/
+videos/
+images/
+
+# 日志文件
+*.log
+error.log
+debug.log
+system_info.txt
+
+# 临时文件
+/tmp/
+temp/
+*.tmp
+*.temp
+
+# 海康威视SDK相关
+/opt/MVS/
+MVS/
+
+# Jetson/嵌入式设备特定
+*.tegra
+jtop_*
+
+# 测试输出
+test_output/
+test_results/

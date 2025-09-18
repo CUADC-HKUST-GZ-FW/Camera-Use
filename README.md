@@ -13,11 +13,9 @@ Camera_GetData/
 │       ├── report.txt              # 校准报告
 │       └── undistorted_samples/    # 去畸变样本图像
 ├── windows/                        # Windows版本
-│   ├── hikvision_camera_controller.py # 主程序（含GUI）
-│   ├── install_windows.bat        # 安装脚本
-│   └── README_windows.md          # Windows版本说明
-├── linux/                         # Linux版本
-│   ├── hikvision_camera_controller_linux.py # 主程序（命令行）
+│   └── hikvision_camera_controller.py # 主程序（GUI版本）
+├── linux/                         # Linux版本 (Jetson Orin Nano优化)
+│   ├── hikvision_camera_controller_linux.py # 主程序（命令行版本）
 │   ├── 使用指南.md                  # 详细使用指南
 │   ├── CALLORDER错误解决方案.md     # 故障排除指南
 │   ├── test_env.py                # 环境变量测试
@@ -25,7 +23,9 @@ Camera_GetData/
 │   ├── fix_permissions.sh         # 权限修复脚本
 │   ├── diagnose_camera.sh         # 全面诊断脚本
 │   ├── quick_test.sh             # 快速测试脚本
-│   └── verify_fix.sh             # 验证修复脚本
+│   ├── verify_fix.sh             # 验证修复脚本
+│   ├── jetson_setup.sh           # Jetson优化脚本
+│   └── start_camera.sh           # 启动脚本
 └── README.md                      # 项目说明（本文件）
 ```
 
